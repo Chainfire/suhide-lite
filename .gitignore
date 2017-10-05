@@ -1,0 +1,17 @@
+.idea
+.gradle
+*.iml
+local.properties
+*/bin
+*/gen
+*/build
+
+suhide/proguard
+ZIP/suhide/common/*.apk
+ZIP/suhude/arm
+ZIP/suhude/armv7
+ZIP/suhude/arm64
+ZIP/suhude/x86
+ZIP/suhude/x64
+ZIP/suhude/mips
+ZIP/suhude/mips64

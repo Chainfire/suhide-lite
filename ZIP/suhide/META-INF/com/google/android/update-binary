@@ -1,0 +1,173 @@
+#!/sbin/sh
+
+OUTFD=$2
+ZIP=$3
+
+ui_print() {
+  echo -n -e "ui_print $1\n" > /proc/self/fd/$OUTFD
+  echo -n -e "ui_print\n" > /proc/self/fd/$OUTFD
+}
+
+ui_print " "
+ui_print "*************************"
+ui_print "Installing suhide-lite..."
+ui_print "*************************"
+ui_print " "
+
+mount -o ro /system
+mount /system
+mount -o rw,remount /
+
+cd /tmp
+mkdir suhide
+cd suhide
+
+unzip -o "$ZIP"
+
+# some checks
+
+ui_print "Compatibility checks..."
+ui_print " "
+
+if [ -f "/system/xbin/su" ]; then
+    ui_print "Fatal error: /system/xbin/su found"
+    ui_print "Do you have SuperSU v2.82 SR2 or newer installed in systemless mode ?"
+    exit 1
+fi
+
+if [ -f "/system/bin/su" ]; then
+    ui_print "Fatal error: /system/bin/su found"
+    ui_print "Do you have SuperSU v2.82 SR2 or newer installed in systemless mode ?"
+    exit 1
+fi
+
+if [ -f "/system/bin/app_process32_xposed" ]; then
+    ui_print "Fatal error: /system/bin/app_process32_xposed found"
+    ui_print "Xposed is not currently supported"
+    exit 1
+fi
+
+if [ -f "/system/bin/app_process64_xposed" ]; then
+    ui_print "Fatal error: /system/bin/app_process64_xposed found"
+    ui_print "Xposed is not currently supported"
+    exit 1
+fi
+
+if [ ! -d "/data/supersu_install" ] && [ ! -d "/cache/supersu_install" ]; then
+    if [ -f "/data/su.img" ]; then
+        ui_print "Fatal error: SuperSU image found at /data/su.img"
+        ui_print "SuperSU must be installed in BINDSBIN mode"
+        exit 1
+    fi
+
+    if [ -f "/cache/su.img" ]; then
+        ui_print "Fatal error: SuperSU image found at /cache/su.img"
+        ui_print "SuperSU must be installed in BINDSBIN mode"
+        exit 1
+    fi
+fi
+
+SUPATH=
+if [ -d "/data/adb/su/bin" ]; then
+  SUPATH=/data/adb/su
+elif [ -d "/data/supersu_install/bin" ]; then
+  SUPATH=/data/supersu_install
+elif [ -d "/cache/supersu_install/bin" ]; then
+  SUPATH=/cache/supersu_install
+fi
+
+if [ -z "$SUPATH" ]; then
+    ui_print "Fatal error: SuperSU binaries not found"
+    ui_print "SuperSU must be installed in BINDSBIN mode"
+    exit 1
+fi
+
+# detect architecture
+
+ui_print "Detecting architecture..."
+
+ABI=$(cat /system/build.prop /default.prop | grep -m 1 "ro.product.cpu.abi=" | dd bs=1 skip=19 count=3)
+ABILONG=$(cat /system/build.prop /default.prop | grep -m 1 "ro.product.cpu.abi=" | dd bs=1 skip=19)
+ABI2=$(cat /system/build.prop /default.prop | grep -m 1 "ro.product.cpu.abi2=" | dd bs=1 skip=20 count=3)
+ARCH=arm
+
+if [ "$ABI" = "x86" ]; then ARCH=x86; fi;
+if [ "$ABI2" = "x86" ]; then ARCH=x86; fi;
+
+if [ "$ABILONG" = "armeabi-v7a" ]; then ARCH=armv7; fi;
+if [ "$ABI" = "mip" ]; then ARCH=mips; fi;
+if [ "$ABILONG" = "mips" ]; then ARCH=mips; fi;
+
+if [ "$ABILONG" = "arm64-v8a" ]; then ARCH=arm64; fi;
+if [ "$ABILONG" = "mips64" ]; then ARCH=mips64; fi;
+if [ "$ABILONG" = "x86_64" ]; then ARCH=x64; fi;
+
+ui_print "- $ARCH"
+ui_print " "
+
+# place files
+
+ui_print "Copying files..."
+
+mkdir $SUPATH/suhide
+chown 0.0 $SUPATH/suhide
+chmod 0755 $SUPATH/suhide
+chcon u:object_r:system_file:s0 $SUPATH/suhide
+
+for FILE in setpropex suhide suhide32 suhide64; do
+    cp /tmp/suhide/$ARCH/$FILE $SUPATH/suhide/$FILE
+    chown 0.0 $SUPATH/suhide/$FILE
+    chmod 0755 $SUPATH/suhide/$FILE
+    chcon u:object_r:system_file:s0 $SUPATH/suhide/$FILE
+done
+
+for FILE in add list rm switch_packages; do
+    cp /tmp/suhide/common/$FILE $SUPATH/suhide/$FILE
+    chown 0.0 $SUPATH/suhide/$FILE
+    chmod 0755 $SUPATH/suhide/$FILE
+    chcon u:object_r:system_file:s0 $SUPATH/suhide/$FILE
+done
+
+for FILE in suhide.apk; do
+    cp /tmp/suhide/common/$FILE $SUPATH/suhide/$FILE
+    chown 0.0 $SUPATH/suhide/$FILE
+    chmod 0644 $SUPATH/suhide/$FILE
+    chcon u:object_r:system_file:s0 $SUPATH/suhide/$FILE
+done
+
+rm $SUPATH/su.d/*suhide*
+cp /tmp/suhide/common/zz99suhide $SUPATH/su.d/zz99suhide
+chown 0.0 $SUPATH/su.d/zz99suhide
+chmod 0700 $SUPATH/su.d/zz99suhide
+chcon u:object_r:system_file:s0 $SUPATH/su.d/zz99suhide
+
+ui_print "- Complete"
+ui_print " "
+
+ui_print "Creating defaults..."
+if [ ! -f "$SUPATH/suhide/suhide.uid" ]; then
+    echo com.google.android.gms.unstable>$SUPATH/suhide/suhide.uid
+fi
+chmod 0600 $SUPATH/suhide/suhide.uid
+chcon u:object_r:system_file:s0 $SUPATH/suhide/suhide.uid
+if [ ! -f "$SUPATH/suhide/suhide.pkg" ]; then
+    echo eu.chainfire.supersu>$SUPATH/suhide/suhide.pkg
+    echo eu.chainfire.suhide>>$SUPATH/suhide/suhide.pkg
+fi
+chmod 0600 $SUPATH/suhide/suhide.pkg
+chcon u:object_r:system_file:s0 $SUPATH/suhide/suhide.pkg
+ui_print "- Complete"
+ui_print " "
+
+# done
+
+cd /tmp
+rm -rf /tmp/suhide
+cd /
+
+ui_print "**********************"
+ui_print "Installation complete!"
+ui_print "**********************"
+ui_print " "
+
+exit 0

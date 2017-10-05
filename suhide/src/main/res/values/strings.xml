@@ -1,0 +1,49 @@
+<resources>
+    <string name="app_name">suhide</string>
+    <string name="main_title">suhide-lite</string>
+    <string name="set_state_root">Root allowed for %s</string>
+    <string name="set_state_no_root">Root hidden from %s</string>
+    <string name="set_state_hidden">Hiding %s from other apps</string>
+    <string name="startup_loading">Loading…</string>
+    <string name="startup_getting_root">Acquiring root access…</string>
+    <string name="startup_detecting_root_state">Detecting root state…</string>
+    <string name="startup_reading_config">Reading suhide configuration…</string>
+    <string name="startup_detecting_apps">Detecting apps…</string>
+    <string name="startup_complete">Complete!</string>
+    <string name="error_no_root">Could not acquire root access!</string>
+    <string name="error_no_supersu">Root is not SuperSU!</string>
+    <string name="error_no_sbin_bind">SuperSU is not running in SBIN mode!</string>
+    <string name="error_no_suhide">Could not find suhide binaries!</string>
+    <string name="btn_kill">Kill</string>
+    <string name="kill_title">Killing…</string>
+    <string name="kill_message">Terminating all running processes that should not be able to see root, please wait…</string>
+
+    <string name="about"><![CDATA[
+        <b>suhide vX.YY</b><br />
+        Copyright &copy; 2016-2017 Chainfire &amp; CCMT<br />
+        <br />
+        <b>Basic operation</b><br />
+        You can configure each app if it should be able to see root (green
+        icon), if root should be hidden from it (red icon), or if the app
+        should be hidden from other apps (blue icon).<br />
+        <br />
+        For performance reasons it is best to allow apps to have root (green
+        icon) by default.<br />
+        <br />
+        <b>Killing apps</b><br />
+        Hiding root from an app only goes into effect the next time the app
+        is started. This user interface does not kill apps automatically when
+        you select them, because it is a slow operation. The cross icon in the
+        app\'s toolbar allows you to manually kill all running instances of apps
+        that root should be hidden from, once you are done configuring.<br />
+        <br />
+        <b>Hiding apps</b><br />
+        Some apps (such as games) detect the presence of other apps (such
+        as SuperSU). By pressing <b>volume up, volume down, volume up,
+        volume down, volume up, volume down</b> (so three times alternated
+        volume up, volume down) in less than <b>3 seconds</b>, the selected
+        apps will be hidden or unhidden from all other apps (including the
+        launcher). In this hidden state, SuperSU will keep granting root to
+        already configured apps, and will deny root from all other apps.
+    ]]></string>
+</resources>

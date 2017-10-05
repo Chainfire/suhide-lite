@@ -1,0 +1,11 @@
+#!/sbin/sush
+UIDFILE=/sbin/supersu/suhide/suhide.uid
+UID=$1
+
+if [ ! -z "$UID" ]; then
+  cat $UIDFILE | grep -v "^$UID$" > $UIDFILE.tmp
+  if [ -f "$UIDFILE.tmp" ]; then
+    rm $UIDFILE
+    mv $UIDFILE.tmp $UIDFILE
+  fi
+fi

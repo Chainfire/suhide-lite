@@ -1,0 +1,3 @@
+#!/sbin/sush
+UIDFILE=/sbin/supersu/suhide/suhide.uid
+cat $UIDFILE

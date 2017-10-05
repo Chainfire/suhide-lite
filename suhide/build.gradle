@@ -1,0 +1,165 @@
+import com.android.build.gradle.tasks.NdkCompile
+import org.apache.tools.ant.taskdefs.condition.Os
+
+apply plugin: 'com.android.application'
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile 'com.android.support:appcompat-v7:25.1.1'
+    compile 'com.android.support:design:25.1.1'
+    compile 'com.android.support:recyclerview-v7:25.1.1'
+    compile('eu.chainfire:libsuperuser:1.0.0.+') { changing = true }
+}
+
+def copyFile(String source, String target) {
+    delete file(target)
+    copy {
+        from file(source).parentFile.absolutePath
+        into file(target).parentFile.absolutePath
+        include file(source).name
+        rename '(.*)', file(target).name
+    }
+}
+
+def copyFiles(String sourceBase, String source32, String source64, String target) {
+    if (source64 == null) {
+        copyFile(sourceBase + '/' + source32 + '/suhide', target + '/suhide');
+        copyFile(sourceBase + '/' + source32 + '/suhide32', target + '/suhide32');
+        copyFile(sourceBase + '/' + source32 + '/setpropex', target + '/setpropex');
+    } else {
+        copyFile(sourceBase + '/' + source64 + '/suhide', target + '/suhide');
+        copyFile(sourceBase + '/' + source32 + '/suhide32', target + '/suhide32');
+        copyFile(sourceBase + '/' + source64 + '/suhide64', target + '/suhide64');
+        copyFile(sourceBase + '/' + source64 + '/setpropex', target + '/setpropex');
+    }
+}
+
+def ndkClean(String path) {
+    delete file(path.concat('/obj'));
+    delete file(path.concat('/libs'));
+}
+
+def ndkBuildInt(String path, String abi, String platform, boolean debug, boolean pie, String extra1 = '', String extra2 = '') {
+    Properties properties = new Properties()
+    properties.load(project.rootProject.file('local.properties').newDataInputStream())
+    def ndkDir = properties.getProperty('ndk.dir')
+    def ndkBuildCommand = ndkDir + ((Os.isFamily(Os.FAMILY_WINDOWS)) ? '\\ndk-build.cmd' : '/ndk-build')
+    def arguments = [
+            '-C',
+            file(path).absolutePath,
+            '-j6',
+            '-B',
+            'NDK_TOOLCHAIN_VERSION=4.9',
+            'APP_ABI=' + abi,
+            'APP_PLATFORM=' + platform,
+            'APP_PIE=' + (pie ? 'true' : 'false'),
+            'V=' + (debug ? '1' : '0'),
+            'NDK_DEBUG=' + (debug ? '1' : '0'),
+            'NDK_LOG=' + (debug ? '1' : '0'),
+            'NDK_PROJECT_PATH=' + file(path).absolutePath,
+            'APP_PROJECT_PATH=' + file(path).absolutePath,
+            'APP_BUILD_SCRIPT=Android.mk',
+            extra1,
+            extra2
+    ];
+    println ndkBuildCommand + ' ' + arguments.join(' ');
+    exec {
+        executable ndkBuildCommand
+        args arguments
+    }
+}
+
+def ndkBuild(boolean debug) {
+    ndkClean('native');
+    if (debug) {
+        ndkBuildInt('native', 'armeabi-v7a,arm64-v8a', 'android-21', true, true);
+        copyFiles('native/libs', 'armeabi-v7a', null, '../ZIP/suhide/armv7');
+        copyFiles('native/libs', 'armeabi-v7a', 'arm64-v8a', '../ZIP/suhide/arm64');
+    } else {
+        ndkBuildInt('native', 'all', 'android-21', false, false);
+
+        copyFiles('native/libs', 'armeabi', null, '../ZIP/suhide/arm');
+        copyFiles('native/libs', 'armeabi-v7a', null, '../ZIP/suhide/armv7');
+        copyFiles('native/libs', 'armeabi-v7a', 'arm64-v8a', '../ZIP/suhide/arm64');
+
+        copyFiles('native/libs', 'mips', null, '../ZIP/suhide/mips');
+        copyFiles('native/libs', 'mips', 'mips64', '../ZIP/suhide/mips64');
+
+        copyFiles('native/libs', 'x86', null, '../ZIP/suhide/x86');
+        copyFiles('native/libs', 'x86', 'x86_64', '../ZIP/suhide/x64');
+    }
+    ndkClean('native');
+}
+
+def zipCreate(String type, String outputFile) {
+    def command = project.rootProject.file('ZIP/make.bat').getAbsolutePath()
+    def arguments = [ type, outputFile ]
+    println command + ' ' + arguments.join(' ');
+    exec {
+        workingDir project.rootProject.file('ZIP')
+        executable command
+        args arguments
+    }
+}
+
+android {
+    compileSdkVersion 25
+    buildToolsVersion "25.0.0"
+
+    defaultConfig {
+        applicationId "eu.chainfire.suhide"
+        minSdkVersion 23
+        targetSdkVersion 25
+    }
+
+    buildTypes {
+        release {
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-project.txt'
+            minifyEnabled true
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            if (variant.buildType.name == 'release') {
+                def baseName = "suhide"
+
+                output.outputFile = new File(output.outputFile.parent, baseName + "-v" + (new com.android.builder.core.DefaultManifestParser()).getVersionName(android.sourceSets.main.manifest.srcFile) + "-" + (new Date()).format('yyyyMMddHHmmss') + ".apk")
+
+                variant.assemble.doLast {
+                    copy {
+                        from 'build/outputs/mapping/release'
+                        into 'proguard'
+                        include '**/mapping.txt'
+                    }
+                    copyFile('proguard/mapping.txt', output.outputFile.getAbsolutePath().replace('.apk', '-mapping.txt'));
+
+                    copyFile(output.outputFile.getAbsolutePath(), project.rootProject.file('ZIP/suhide/common/suhide.apk').getAbsolutePath());
+                    zipCreate('suhide', output.outputFile.getAbsolutePath().replace('.apk', '.zip'));
+                }
+            }
+        }
+    }
+
+    lintOptions {
+        abortOnError false
+        disable 'MissingTranslation'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_6
+    }
+}
+
+gradle.projectsEvaluated {
+    // NDK
+    tasks.withType(NdkCompile) {
+        // disable built-in NDK build
+        compileTask -> compileTask.enabled = false
+    }
+    tasks.compileDebugSources.doLast {
+        ndkBuild(true)
+    }
+    tasks.compileReleaseSources.doLast {
+        ndkBuild(false)
+    }
+}

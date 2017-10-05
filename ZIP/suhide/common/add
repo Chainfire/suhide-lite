@@ -1,0 +1,9 @@
+#!/sbin/sush
+UIDFILE=/sbin/supersu/suhide/suhide.uid
+UID=$1
+
+if [ ! -z "$UID" ]; then
+  if (! cat $UIDFILE 2>/dev/null | grep "^$UID$" >/dev/null); then
+    echo "$UID" >> $UIDFILE
+  fi
+fi

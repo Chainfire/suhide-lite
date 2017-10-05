@@ -1,0 +1,56 @@
+#!/sbin/sush
+
+setprop() {
+    /sbin/supersu/suhide/setpropex $1 $2 /sbin/supersu/suhide/setpropex.lock
+}
+
+{
+    setprop ro.boot.verifiedbootstate green
+    setprop ro.boot.veritymode enforcing
+    setprop ro.boot.flash.locked 1
+    setprop ro.oem_unlock_supported 0
+    setprop sys.oem_unlock_allowed 0
+    setprop ro.debuggable 0
+    setprop ro.secure 1
+    setprop ro.adb.secure 1
+} &
+
+for PROP in ro.bootimage.build.fingerprint ro.build.description ro.build.fingerprint ro.build.tags ro.vendor.build.fingerprint; do
+    {
+        local CURRENT=$(getprop $PROP)
+        if [ ! -z "$CURRENT" ]; then
+            CURRENT=$(echo $CURRENT | sed 's/:userdebug\//:user\//g' | sed 's/:eng\//:user\//g' | sed 's/user-keys/release-keys/g' | sed 's/test-keys/release-keys/g')
+            setprop $PROP "$CURRENT"
+        fi
+    } &
+done
+
+{
+    mount -o rw,remount rootfs /
+    sed -i '/supersu_prop/d' /property_contexts
+    restorecon /property_contexts
+    sed -i '/supersu_prop/d' /plat_property_contexts
+    restorecon /plat_property_contexts
+    rm /init.supersu.rc
+    rm -rf /boot
+    mount -o ro,remount rootfs /
+} &
+
+wait
+
+rm /sbin/supersu/suhide/setpropex.lock
+
+if [ -f "/sbin/supersu/suhide/suhide.apk" ]; then
+    {
+        while (true); do
+            pm uninstall eu.chainfire.suhide
+            if (`pm install -r /sbin/supersu/suhide/suhide.apk >>/sbin/.suhide_install 2>&1`); then
+              break;
+            fi
+            sleep 1
+        done
+        rm -rf /sbin/supersu/suhide/suhide.apk
+    } &
+fi
+
+/sbin/supersu/suhide/suhide

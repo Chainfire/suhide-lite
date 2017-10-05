@@ -1,0 +1,16 @@
+#!/sbin/sush
+PKGFILE=/sbin/supersu/suhide/suhide.pkg
+
+HIDDEN=false
+for i in `cat $PKGFILE 2>/dev/null`; do
+  if (`cat /data/system/users/0/package-restrictions.xml 2>/dev/null | grep $i | grep hidden >/dev/null`); then
+    HIDDEN=true
+  fi
+done
+for i in `cat $PKGFILE 2>/dev/null`; do
+  if (! $HIDDEN); then
+    pm hide $i
+  else
+    pm unhide $i
+  fi
+done
